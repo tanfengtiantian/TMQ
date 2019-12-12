@@ -42,7 +42,7 @@ public class Log implements ILog{
 
 	private final Logger logger = LoggerFactory.getLogger(Log.class);
 
-    private static String FileSuffix = ".zxQueue";
+    private static String FileSuffix = ".tmq";
 
     private final AtomicLong lastflushedTime = new AtomicLong(System.currentTimeMillis());
     

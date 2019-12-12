@@ -60,17 +60,18 @@ public class Processor extends AbstractServerThread{
 	public void accept(SocketChannel socketChannel) {
 		newConnections.add(socketChannel);
 		//唤醒阻塞在selector.select上的线程
-        getSelector().wakeup();
+        selectorManager.getSelector().wakeup();
 	}
 
 	@Override
 	public void run() {
+        this.selectorManager.notifyReady();
 		startupComplete();
 		while (isRunning()) {
 			try {
 				// 注册OP_Read
                 configureNewConnections();
-                final Selector selector = getSelector();
+                final Selector selector = selectorManager.getSelector();
                 int ready = selector.select(500);
                 if (ready <= 0) continue;
                 Iterator<SelectionKey> iter = selector.selectedKeys().iterator();
@@ -143,7 +144,7 @@ public class Processor extends AbstractServerThread{
         } else {
             // 断包处理
             key.interestOps(SelectionKey.OP_READ);
-            getSelector().wakeup();
+            selectorManager.getSelector().wakeup();
             //requestLogger.info("未完成读取请求. " + request+" read=" + read);
         }
 	}
@@ -157,7 +158,7 @@ public class Processor extends AbstractServerThread{
             key.interestOps(SelectionKey.OP_READ);
         } else {
             key.interestOps(SelectionKey.OP_WRITE);
-            getSelector().wakeup();
+            selectorManager.getSelector().wakeup();
         }
 	}
 	
@@ -209,7 +210,12 @@ public class Processor extends AbstractServerThread{
             	requestLogger.debug("正在侦听来自的新连接: " + channel.socket().getRemoteSocketAddress());
             }
             //标记读
-            channel.register(getSelector(), SelectionKey.OP_READ);
+            channel.register(selectorManager.getSelector(), SelectionKey.OP_READ);
         }
+    }
+
+    @Override
+    protected int getPLength() {
+        return 0;
     }
 }

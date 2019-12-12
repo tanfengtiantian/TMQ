@@ -17,34 +17,26 @@ import org.slf4j.LoggerFactory;
  * @ClassName Selector选择基类
  */
 public abstract class AbstractServerThread implements Runnable, Closeable {
-
-	private Selector selector;
+    protected SelectorManager selectorManager;
     protected final CountDownLatch startupLatch = new CountDownLatch(1);
     protected final CountDownLatch shutdownLatch = new CountDownLatch(1);
     protected final AtomicBoolean alive = new AtomicBoolean(false);
     final protected Logger logger = LoggerFactory.getLogger(getClass());
-    /**
-     * @return the selector
-     */
-    public Selector getSelector() {
-        if (selector == null) {
-            try {
-                selector = Selector.open();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return selector;
-    }
 
     protected void closeSelector() {
-        Closer.closeQuietly(selector, logger);
+        Closer.closeQuietly(selectorManager.getSelector(), logger);
+    }
+
+    public void initialSelectorManager(int plength) {
+        if (this.selectorManager == null) {
+            this.selectorManager = new SelectorManager(this, plength);
+        }
     }
 
     @Override
     public void close() {
         alive.set(false);
-        selector.wakeup();
+        selectorManager.getSelector().wakeup();
         try {
             shutdownLatch.await();
         } catch (InterruptedException e) {
@@ -69,4 +61,8 @@ public abstract class AbstractServerThread implements Runnable, Closeable {
         startupLatch.await();
     }
 
+    public void notifyReady(){
+
+
+    }
 }

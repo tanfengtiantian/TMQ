@@ -62,7 +62,7 @@ public class Service implements Closeable {
 			transactionStore=new JournalTransactionStore(config,logManager);
 			transactionStore.load();
 
-
+			//网络监听器启动
 			RequestHandlers handlers = new RequestHandlers(config,logManager,transactionStore);
 	        socketServer = new SocketServer(handlers, config);
 	        socketServer.startup();

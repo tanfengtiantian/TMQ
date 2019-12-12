@@ -53,6 +53,7 @@ public class Acceptor extends AbstractServerThread{
     
 	@Override
 	public void run() {
+        initialSelectorManager();
 		final ServerSocketChannel serverChannel;
         try {
             serverChannel = ServerSocketChannel.open();
@@ -61,7 +62,7 @@ public class Acceptor extends AbstractServerThread{
             //绑定端口
             serverChannel.socket().bind(new InetSocketAddress(port));
             //注册连接事件
-            serverChannel.register(getSelector(), SelectionKey.OP_ACCEPT);
+            serverChannel.register(selectorManager.getSelector(), SelectionKey.OP_ACCEPT);
         } catch (IOException e) {
             logger.error("监听端口： " + port + " 失败(failed).");
             throw new RuntimeException(e);
@@ -74,13 +75,13 @@ public class Acceptor extends AbstractServerThread{
         while(isRunning()) {
             int ready = -1;
             try {
-                ready = getSelector().select(500L);
+                ready = selectorManager.getSelector().select(500L);
             } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
             //获取失败 进入下次循环
             if(ready<=0)continue;
-            Iterator<SelectionKey> iter = getSelector().selectedKeys().iterator();
+            Iterator<SelectionKey> iter = selectorManager.getSelector().selectedKeys().iterator();
             while(iter.hasNext() && isRunning())
                 try {
                     SelectionKey key = iter.next();
@@ -103,7 +104,7 @@ public class Acceptor extends AbstractServerThread{
         //run over
         logger.info("关闭服务器和选择器.");
         Closer.closeQuietly(serverChannel, logger);
-        Closer.closeQuietly(getSelector(), logger);
+        Closer.closeQuietly(selectorManager.getSelector(), logger);
         shutdownComplete();
 	}
 	
@@ -123,5 +124,10 @@ public class Acceptor extends AbstractServerThread{
         logger.info("OP_ACCEPT请求->来自Client->{}",socketChannel.getRemoteAddress());
         //发送处理器队列
         processor.accept(socketChannel);
+    }
+
+    @Override
+    protected int getPLength() {
+        return 0;
     }
 }

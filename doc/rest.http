@@ -1,0 +1,7 @@
+## 测试接口
+POST http://192.168.12.141:8888/rest
+Content-Type: application/x-www-form-urlencoded
+
+cmd=base/data&data={}&version=1
+
+###

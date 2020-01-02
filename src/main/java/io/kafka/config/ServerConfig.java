@@ -112,25 +112,15 @@ public class ServerConfig {
 	public int getDefaultFlushIntervalMs() {
         return getInt(props, "log.default.flush.interval.ms", getFlushSchedulerThreadRate());
     }
-	//*********************************************************************log配置****************************************
-	
-	//*********************************************************************server配置****************************************
-	/**
-	 * 接收数据包(size)上线
-	 * @return
-	 */
-	public int getMaxSocketRequestSize() {
-		return getIntInRange(props, "max.socket.request.bytes", 100 * 1024 * 1024, 1, Integer.MAX_VALUE);
-	}
 	/**
 	 * 最大处理器线程数量
 	 * 2的幂次
 	 * @return
 	 */
 	public int getNumThreads() {
-		 return tableSizeFor(
-		 		getIntInRange(props, "num.threads", Runtime.getRuntime().availableProcessors(), 1 , Integer.MAX_VALUE)
-		 );
+		return tableSizeFor(
+				getIntInRange(props, "num.threads", Runtime.getRuntime().availableProcessors(), 1 , Integer.MAX_VALUE)
+		);
 	}
 
 	private static final int MAXIMUM_CAPACITY = 1 << 30;
@@ -149,6 +139,9 @@ public class ServerConfig {
 		n |= n >>> 16;
 		return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
 	}
+	//*********************************************************************log配置****************************************
+	
+	//*********************************************************************server-socket配置****************************************
 	/**
 	 * 启动端口
 	 * @return
@@ -156,26 +149,79 @@ public class ServerConfig {
 	public int getPort() {
 		return getInt(props, "port", 9092);
 	}
+
 	/**
-	 * 发送数据最大size
+	 * socket请求的最大字节数。为了防止内存溢出
+	 * @return
+	 */
+	public int getMaxSocketRequestSize() {
+		return getIntInRange(props, "max.socket.request.bytes", 100 * 1024 * 1024, 1, Integer.MAX_VALUE);
+	}
+	/**
+	 * socket的发送缓冲区(SO_SNDBUF)
 	 * @return
 	 */
 	public int getSocketSendBuffer() {
 		 return getInt(props, "socket.send.buffer", 100 * 1024);
 	}
 	/**
-	 * 接收数据最大size
+	 * socket的接收缓冲区 (SO_RCVBUF)
 	 * @return
 	 */
 	public int getSocketReceiveBuffer() {
 		return getInt(props, "socket.receive.buffer", 100 * 1024);
 	}
 	/**
-	 * 最大链接数
+	 * socket最大链接数
 	 * @return
 	 */
 	public int getMaxConnections() {
 		return getInt(props, "max.connections", 10000);
+	}
+
+	/**
+	 * Socket SO_LINGER选项
+	 */
+	private boolean soLinger = true;
+
+	public boolean isSoLinger() {
+		return this.soLinger;
+	}
+
+	/**
+	 * linger值
+	 */
+	private int linger = 0;
+
+	public int getLinger() {
+		return this.linger;
+	}
+
+	/**
+	 * socket SO_KEEPALIVE选项
+	 */
+	private boolean keepAlive = true;
+
+	public boolean isKeepAlive() {
+		return this.keepAlive;
+	}
+
+
+	/**
+	 * 是否禁止Nagle算法，默认为true 禁止
+	 */
+	private boolean tcpNoDelay = true;
+
+	public boolean isTcpNoDelay() {
+		return this.tcpNoDelay;
+	}
+
+	/**
+	 * 是否重用端口
+	 */
+	private boolean reuseAddr = true;
+	public boolean isReuseAddr() {
+		return this.reuseAddr;
 	}
 	//*********************************************************************server配置****************************************
 	

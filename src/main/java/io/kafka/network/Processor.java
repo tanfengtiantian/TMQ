@@ -3,6 +3,8 @@ package io.kafka.network;
 import static java.lang.String.format;
 import io.kafka.api.RequestKeys;
 import io.kafka.common.exception.InvalidRequestException;
+import io.kafka.config.ServerConfig;
+import io.kafka.core.Controller;
 import io.kafka.network.receive.BoundedByteBufferReceive;
 import io.kafka.network.receive.Receive;
 import io.kafka.network.request.RequestHandler;
@@ -30,7 +32,7 @@ import org.slf4j.LoggerFactory;
  * @ClassName *处理来自单个连接的所有请求的线程。
  * 			  *其中每个都有自己的选择器
  */
-public class Processor extends AbstractServerThread{
+public class Processor extends AbstractServerThread implements Controller {
 
 	private BlockingQueue<SocketChannel> newConnections;
 	
@@ -46,9 +48,10 @@ public class Processor extends AbstractServerThread{
 	 * @param maxRequestSize   请求最大包size
 	 * @param maxCacheConnections 最大连接数
 	 */
-	public Processor(RequestHandlerFactory requesthandlerFactory, //
-					int maxRequestSize,//
-					int maxCacheConnections) {
+	public Processor(ServerConfig serverConfig, RequestHandlerFactory requesthandlerFactory, //
+                     int maxRequestSize,//
+                     int maxCacheConnections) {
+	    super(serverConfig);
 		this.requesthandlerFactory = requesthandlerFactory;
 		this.maxRequestSize = maxRequestSize;
 		this.newConnections = new ArrayBlockingQueue<SocketChannel>(maxCacheConnections);
@@ -126,8 +129,10 @@ public class Processor extends AbstractServerThread{
         if (key.attachment() == null) {
             request = new BoundedByteBufferReceive(maxRequestSize);
             key.attach(request);
+            System.out.println("BoundedByteBufferReceive");
         } else {
             request = (Receive) key.attachment();
+            System.out.println("Receive");
         }
         //sizeBuffer [size -4bytes] + contentBuffer
         int read = request.readFrom(socketChannel);
@@ -212,10 +217,5 @@ public class Processor extends AbstractServerThread{
             //标记读
             channel.register(selectorManager.getSelector(), SelectionKey.OP_READ);
         }
-    }
-
-    @Override
-    protected int getPLength() {
-        return 0;
     }
 }

@@ -1,5 +1,7 @@
 package io.kafka.network;
 
+import io.kafka.config.ServerConfig;
+import io.kafka.core.Controller;
 import io.kafka.utils.Closer;
 import sun.misc.Contended;
 import java.io.IOException;
@@ -16,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @version 创建时间：2019年1月17日 上午9:58:11
  * @ClassName 接受和配置新连接的线程。只需要一个
  */
-public class Acceptor extends AbstractServerThread{
+public class Acceptor extends AbstractServerThread implements Controller {
 	
 	private int port;
 	/**
@@ -43,8 +45,8 @@ public class Acceptor extends AbstractServerThread{
      * @param sendBufferSize
      * @param receiveBufferSize
      */
-    public Acceptor(int port, Processor[] processors, int sendBufferSize, int receiveBufferSize) {
-        super();
+    public Acceptor(ServerConfig serverConfig, int port, Processor[] processors, int sendBufferSize, int receiveBufferSize) {
+        super(serverConfig);
         this.port = port;
         this.processors = processors;
         this.sendBufferSize = sendBufferSize;
@@ -53,7 +55,8 @@ public class Acceptor extends AbstractServerThread{
     
 	@Override
 	public void run() {
-        initialSelectorManager();
+        //初始化配置参数
+        setSocketOptions(getSocketOptionsFromConfig(serverConfig));
 		final ServerSocketChannel serverChannel;
         try {
             serverChannel = ServerSocketChannel.open();
@@ -63,14 +66,16 @@ public class Acceptor extends AbstractServerThread{
             serverChannel.socket().bind(new InetSocketAddress(port));
             //注册连接事件
             serverChannel.register(selectorManager.getSelector(), SelectionKey.OP_ACCEPT);
+
         } catch (IOException e) {
             logger.error("监听端口： " + port + " 失败(failed).");
             throw new RuntimeException(e);
         }
         
         logger.info("正在端口上等待连接: "+port);
+        //等待处理器全部就绪完毕后接收请求
+        selectorManager.awaitReady();
         startupComplete();
-        
         int current = currentProcessor.get();
         while(isRunning()) {
             int ready = -1;
@@ -80,7 +85,7 @@ public class Acceptor extends AbstractServerThread{
                 throw new IllegalStateException(e);
             }
             //获取失败 进入下次循环
-            if(ready<=0)continue;
+            if(ready <= 0) continue;
             Iterator<SelectionKey> iter = selectorManager.getSelector().selectedKeys().iterator();
             while(iter.hasNext() && isRunning())
                 try {
@@ -115,19 +120,10 @@ public class Acceptor extends AbstractServerThread{
         serverSocketChannel.socket().setReceiveBufferSize(receiveBufferSize);
         //获取客户端请求通道
         SocketChannel socketChannel = serverSocketChannel.accept();
-        //设置非堵塞
-        socketChannel.configureBlocking(false);
-        //禁用nagle算法 ack
-        socketChannel.socket().setTcpNoDelay(true);
-        //设置发送数据最大Buffer
-        socketChannel.socket().setSendBufferSize(sendBufferSize);
-        logger.info("OP_ACCEPT请求->来自Client->{}",socketChannel.getRemoteAddress());
+        //设置socket参数
+        this.configureSocketChannel(socketChannel);
         //发送处理器队列
         processor.accept(socketChannel);
     }
 
-    @Override
-    protected int getPLength() {
-        return 0;
-    }
 }

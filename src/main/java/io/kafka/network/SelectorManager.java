@@ -1,7 +1,9 @@
 package io.kafka.network;
 
+import io.kafka.core.ControllerLifeCycle;
 import java.io.IOException;
 import java.nio.channels.Selector;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 选择器管理
@@ -9,18 +11,15 @@ import java.nio.channels.Selector;
 public class SelectorManager {
 
     private Selector selector;
-    /**
-     * 连接器
-     */
-    private AbstractServerThread serverThread;
+    private ControllerLifeCycle controllerLifeCycle;
     private int plength = -1;
     /**
-     * Reactor准备就绪的个数
+     * Processor准备就绪的个数
      */
-    private int reactorReadyCount;
+    private final AtomicInteger processorReadyCount = new AtomicInteger(0);
 
-    public SelectorManager(AbstractServerThread serverThread, int plength) {
-        this.serverThread = serverThread;
+    public SelectorManager(ControllerLifeCycle controllerLifeCycle, int plength) {
+        this.controllerLifeCycle = controllerLifeCycle;
         this.plength = plength;
     }
     /**
@@ -37,11 +36,23 @@ public class SelectorManager {
         return selector;
     }
 
-    synchronized void notifyReady() {
-        this.reactorReadyCount++;
-        if (this.reactorReadyCount == this.plength) {
+    public void awaitReady() {
+        synchronized (this) {
+            while (this.processorReadyCount.get() != this.plength) {
+                try {
+                    this.wait(1000);
+                }
+                catch (final InterruptedException e) {
+                    Thread.currentThread().interrupt();// reset interrupt status
+                }
+            }
+        }
+    }
+    public synchronized void notifyReady() {
+        this.processorReadyCount.getAndIncrement();
+        if (this.processorReadyCount.get() == this.plength) {
             //加入事件模型
-            this.serverThread.notifyReady();
+            this.controllerLifeCycle.notifyReady();
             this.notifyAll();
         }
     }

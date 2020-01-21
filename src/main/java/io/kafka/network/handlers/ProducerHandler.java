@@ -66,8 +66,8 @@ public class ProducerHandler extends AbstractHandler {
                 }
             }
             request.offset = offset.get(0);
-             BrokerTopicStat.getInstance(request.topic).recordBytesIn(messageSize);
-             BrokerTopicStat.getBrokerAllTopicStat().recordBytesIn(messageSize);
+            BrokerTopicStat.getInstance(request.topic).recordBytesIn(messageSize);
+            BrokerTopicStat.getBrokerAllTopicStat().recordBytesIn(messageSize);
             return new ProducerSend(request);
 
         } catch (InvalidMessageException e) {

@@ -1,12 +1,15 @@
 package io.kafka.http;
 
 import com.alibaba.fastjson.JSONObject;
+import io.kafka.api.RequestKeys;
 import io.kafka.cluster.Broker;
+import io.kafka.network.receive.Receive;
+import io.kafka.network.send.Send;
+import io.kafka.network.session.NioSession;
+import io.kafka.network.session.SessionHandler;
 import io.kafka.plugin.BrokerContext;
-import io.kafka.utils.nettyloc.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -18,11 +21,15 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
-public class JettyProcessor extends HttpServlet {
+public class JettyProcessor extends HttpServlet implements SessionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(JettyProcessor.class);
-
+    private BrokerContext context;
+    public JettyProcessor(BrokerContext context, Properties props) {
+        this.context = context;
+    }
     @Override
     public void init(ServletConfig config) throws ServletException {
         // servlet init
@@ -33,29 +40,29 @@ public class JettyProcessor extends HttpServlet {
         logger.info(req.getRequestURI());
         PrintWriter writer = resp.getWriter();
         writer.print("** -------------------dashboard------------------ **\n");
-        writer.print(JettyBroker.context.getInstance());
-        writer.print(JettyBroker.context.getSystem());
-        writer.print(JettyBroker.context.getJVM());
-        writer.print(JettyBroker.context.getBroker());
-        writer.print(JettyBroker.context.getVersion());
+        writer.print(context.getInstance());
+        writer.print(context.getSystem());
+        writer.print(context.getJVM());
+        writer.print(context.getBroker());
+        writer.print(context.getVersion());
         writer.print("\n** -------------------logger------------------ **\n");
-        List<String> list = JettyBroker.context.getlog(0L);
+        List<String> list = context.getlog(0L);
         for (int i = 0; i < list.size(); i++) {
             writer.print(list.get(i));
         }
         writer.print("\n** -------------------cluster------------------ **\n");
-        writer.print(JettyBroker.context.getCluster());
+        writer.print(context.getCluster());
         writer.print("\n** -------------------java-properties------------------ **\n");
-        writer.print(JettyBroker.context.getJavaProperties());
+        writer.print(context.getJavaProperties());
         writer.print("\n** -------------------threads-dump------------------ **\n");
-        writer.print(JettyBroker.context.getThreadsDump());
+        writer.print(context.getThreadsDump());
         writer.print("\n** -------------------Broker-config------------------ **\n");
         //writer.print(JettyBroker.context.getConfig());
         writer.print("\n** -------------------Topics------------------- **\n");
-        writer.print(JettyBroker.context.getTopics());
+        writer.print(context.getTopics());
 
         writer.print("\n** -------------------Delete-Topics------------------- **\n");
-        writer.print("Delete-Topics 数量="+JettyBroker.context.getLogManager().deleteLogs("tf"));
+        writer.print("Delete-Topics 数量="+context.getLogManager().deleteLogs("tf"));
     }
 
     @Override
@@ -109,7 +116,7 @@ public class JettyProcessor extends HttpServlet {
      * 查询控制台信息
      */
     private String queryDashboard () {
-        BrokerContext context = JettyBroker.context;
+        BrokerContext context = this.context;
         Map<String, Object> data = new HashMap<>(10);
         data.put("instance", context.getInstance());
         data.put("system", context.getSystem());
@@ -123,7 +130,6 @@ public class JettyProcessor extends HttpServlet {
      * 查询日志
      */
     private String queryLogging () {
-        BrokerContext context = JettyBroker.context;
         List<String> list = context.getlog(0L);
         return JSONObject.toJSONString(list);
     }
@@ -132,7 +138,7 @@ public class JettyProcessor extends HttpServlet {
      * 查询集群信息
      */
     private String queryCluster () {
-        List<Broker> cluster = JettyBroker.context.getCluster();
+        List<Broker> cluster = context.getCluster();
         return JSONObject.toJSONString(cluster);
     }
 
@@ -140,28 +146,28 @@ public class JettyProcessor extends HttpServlet {
      * 查询Java Properties
      */
     private String queryJavaProperties () {
-        return JSONObject.toJSONString(JettyBroker.context.getJavaProperties());
+        return JSONObject.toJSONString(context.getJavaProperties());
     }
 
     /**
      * 查询Thread Dump
      */
     private String queryThreadDump () {
-        return JSONObject.toJSONString(JettyBroker.context.getThreadsDump());
+        return JSONObject.toJSONString(context.getThreadsDump());
     }
 
     /**
      * 查询Broker Config
      */
     private String queryBrokerConfig () {
-        return JSONObject.toJSONString(JettyBroker.context.getConfig());
+        return JSONObject.toJSONString(context.getConfig());
     }
 
     /**
      * 查询Topics
      */
     private String queryTopics () {
-        return JSONObject.toJSONString(JettyBroker.context.getTopics());
+        return JSONObject.toJSONString(context.getTopics());
     }
 
     /**
@@ -171,11 +177,56 @@ public class JettyProcessor extends HttpServlet {
         JSONObject jsonObject = JSONObject.parseObject(data);
         String topic = jsonObject.getString("topic");
         if (topic != null && !topic.isEmpty()) {
-            JettyBroker.context.getLogManager().deleteLogs(topic);
+            context.getLogManager().deleteLogs(topic);
             logger.info("【Broker删除Topic】删除成功 topic = {}", topic);
             return "SUCCESS";
         } else {
             return "ERROR";
         }
+    }
+
+    @Override
+    public void onSessionCreated(NioSession session) {
+        System.out.println("JettyProcessor-->onSessionCreated");
+    }
+
+    @Override
+    public void onSessionStarted(NioSession session) {
+        System.out.println("JettyProcessor-->onSessionStarted");
+    }
+
+    @Override
+    public void onMessageReceived(NioSession session, RequestKeys requestType, Receive receive) {
+        System.out.println("JettyProcessor-->onMessageReceived");
+    }
+
+    @Override
+    public void onMessageSent(NioSession session, Send msg) {
+        System.out.println("JettyProcessor-->onMessageSent");
+    }
+
+    @Override
+    public void onExceptionCaught(NioSession session, Throwable throwable) {
+
+    }
+
+    @Override
+    public void onSessionExpired(NioSession session) {
+
+    }
+
+    @Override
+    public void onSessionIdle(NioSession session) {
+
+    }
+
+    @Override
+    public void onSessionClosed(NioSession session) {
+        System.out.println("JettyProcessor-->onSessionClosed");
+    }
+
+    @Override
+    public void onSessionConnected(NioSession session, Object... args) {
+
     }
 }

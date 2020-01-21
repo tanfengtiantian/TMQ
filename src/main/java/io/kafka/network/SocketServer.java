@@ -2,7 +2,6 @@ package io.kafka.network;
 
 import io.kafka.config.ServerConfig;
 import io.kafka.core.AbstractController;
-import io.kafka.core.Controller;
 import io.kafka.network.request.RequestHandlerFactory;
 import io.kafka.utils.Closer;
 import io.kafka.utils.Utils;
@@ -44,12 +43,13 @@ public class SocketServer extends AbstractController implements Closeable {
     
     
     public void startup() throws InterruptedException {
-        SelectorManager selectorManager = acceptor.initialSelectorManager(this, processors.length);
+        //stateListeners.add("");
+        ServerSync serverSync = acceptor.initialServerSync(this, processors.length);
         final int maxCacheConnectionPerThread = serverConfig.getMaxConnections() / processors.length;
         logger.debug("start {} Processor threads",processors.length);
         for (int i = 0; i < processors.length; i++) {
             processors[i] = new Processor(serverConfig, handlerFactory, maxRequestSize, maxCacheConnectionPerThread);
-            processors[i].setSelectorManager(selectorManager);
+            processors[i].setServerSync(serverSync);
             Utils.newThread("kafka-processor-" + i, processors[i], false).start();
         }
         Utils.newThread("kafka-acceptor", acceptor, false).start();

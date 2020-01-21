@@ -4,6 +4,9 @@ import static java.lang.String.format;
 import io.kafka.common.exception.InvalidRequestException;
 import io.kafka.network.AbstractTransmission;
 import io.kafka.utils.Utils;
+import io.kafka.utils.nettyloc.ByteBuf;
+import io.kafka.utils.nettyloc.PooledByteBufAllocator;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
@@ -33,14 +36,13 @@ public class BoundedByteBufferReceive extends AbstractTransmission implements Re
 
 	    private ByteBuffer contentBuffer = null;
 
+		private PooledByteBufAllocator allocator;
+
 	    private int maxRequestSize;
 
-	    public BoundedByteBufferReceive() {
-	        this(Integer.MAX_VALUE);
-	    }
-
-	    public BoundedByteBufferReceive(int maxRequestSize) {
+	    public BoundedByteBufferReceive(int maxRequestSize, PooledByteBufAllocator allocator) {
 	        this.maxRequestSize = maxRequestSize;
+	        this.allocator = allocator;
 	    }
 
 	    /**
@@ -94,7 +96,9 @@ public class BoundedByteBufferReceive extends AbstractTransmission implements Re
 	    private ByteBuffer byteBufferAllocate(int size) {
 	        ByteBuffer buffer = null;
 	        try {
-	            buffer = ByteBuffer.allocate(size);
+				//ByteBuf buf = allocator.directBuffer(size);
+	            //buffer = buf.nioBuffer();
+				buffer = ByteBuffer.allocate(size);
 	        } catch (OutOfMemoryError oome) {
 	            throw new RuntimeException("OOME with size " + size, oome);
 	        } catch (RuntimeException t) {
@@ -103,7 +107,17 @@ public class BoundedByteBufferReceive extends AbstractTransmission implements Re
 	        return buffer;
 	    }
 
-	    @Override
+	@Override
+	public void reset() {
+		if(contentBuffer != null) {
+			sizeBuffer.clear();
+			contentBuffer.clear();
+			contentBuffer = null;
+		}
+		super.reset();
+	}
+
+	@Override
 	    public String toString() {
 	        String msg = "BoundedByteBufferReceive [maxRequestSize=%d, expectSize=%d, readSize=%d, done=%s]";
 	        return format(msg, maxRequestSize, contentBuffer == null ? -1 : contentBuffer.limit(), //

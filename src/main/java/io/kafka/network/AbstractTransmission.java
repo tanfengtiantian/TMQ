@@ -32,6 +32,11 @@ public class AbstractTransmission implements Transmission {
         return done;
     }
 
+    @Override
+    public void reset() {
+        done = false;
+    }
+
     public void setCompleted() {
         this.done = true;
     }

@@ -1,5 +1,6 @@
 package io.kafka.http;
 
+import io.kafka.network.session.SessionContextManager;
 import io.kafka.plugin.AbstractBrokerPlugin;
 import io.kafka.plugin.BrokerContext;
 import org.eclipse.jetty.server.Handler;
@@ -10,6 +11,7 @@ import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
@@ -30,14 +32,16 @@ public class JettyBroker extends AbstractBrokerPlugin {
 
     private int port;
 
-    public static BrokerContext context;
     @Override
     public void init(BrokerContext context, Properties props) {
+        JettyProcessor jettyProcessor = new JettyProcessor(context, props);
         this.port = Integer.valueOf(props.getProperty("serverPort", "8888"));
         server = new Server(createThreadPool());
         server.addConnector(createConnector(port));
-        server.setHandler(createHandlers());
-        JettyBroker.context = context;
+        server.setHandler(createHandlers(jettyProcessor));
+        //注册会话监听
+        SessionContextManager.registerHandler(jettyProcessor);
+
     }
 
     public void start() {
@@ -75,7 +79,7 @@ public class JettyBroker extends AbstractBrokerPlugin {
         return connector;
     }
 
-    private HandlerCollection createHandlers () {
+    private HandlerCollection createHandlers (JettyProcessor jettyProcessor) {
         // 静态资源访问
         ContextHandler contextHandler = new ContextHandler("/");
         ResourceHandler handler = new ResourceHandler();
@@ -86,7 +90,8 @@ public class JettyBroker extends AbstractBrokerPlugin {
 
         // 数据接口
         ServletContextHandler servletHandler = new ServletContextHandler();
-        servletHandler.addServlet(JettyProcessor.class, "/rest");
+        //servletHandler.addServlet(JettyProcessor.class, "/rest");
+        servletHandler.addServlet(new ServletHolder(jettyProcessor),"/rest");
 
         HandlerCollection handlerCollection = new HandlerCollection();
         handlerCollection.setHandlers(new Handler[] {contextHandler, servletHandler});

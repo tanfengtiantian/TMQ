@@ -2,6 +2,7 @@ package io.kafka.network;
 
 import io.kafka.config.ServerConfig;
 import io.kafka.core.Controller;
+import io.kafka.network.session.NioSession;
 import io.kafka.utils.Closer;
 import sun.misc.Contended;
 import java.io.IOException;
@@ -65,7 +66,7 @@ public class Acceptor extends AbstractServerThread implements Controller {
             //绑定端口
             serverChannel.socket().bind(new InetSocketAddress(port));
             //注册连接事件
-            serverChannel.register(selectorManager.getSelector(), SelectionKey.OP_ACCEPT);
+            serverChannel.register(getSelector(), SelectionKey.OP_ACCEPT);
 
         } catch (IOException e) {
             logger.error("监听端口： " + port + " 失败(failed).");
@@ -74,19 +75,19 @@ public class Acceptor extends AbstractServerThread implements Controller {
         
         logger.info("正在端口上等待连接: "+port);
         //等待处理器全部就绪完毕后接收请求
-        selectorManager.awaitReady();
+        serverSync.awaitReady();
         startupComplete();
         int current = currentProcessor.get();
         while(isRunning()) {
             int ready = -1;
             try {
-                ready = selectorManager.getSelector().select(500L);
+                ready = getSelector().select(500L);
             } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
             //获取失败 进入下次循环
             if(ready <= 0) continue;
-            Iterator<SelectionKey> iter = selectorManager.getSelector().selectedKeys().iterator();
+            Iterator<SelectionKey> iter = getSelector().selectedKeys().iterator();
             while(iter.hasNext() && isRunning())
                 try {
                     SelectionKey key = iter.next();
@@ -109,7 +110,7 @@ public class Acceptor extends AbstractServerThread implements Controller {
         //run over
         logger.info("关闭服务器和选择器.");
         Closer.closeQuietly(serverChannel, logger);
-        Closer.closeQuietly(selectorManager.getSelector(), logger);
+        Closer.closeQuietly(getSelector(), logger);
         shutdownComplete();
 	}
 	
@@ -122,8 +123,11 @@ public class Acceptor extends AbstractServerThread implements Controller {
         SocketChannel socketChannel = serverSocketChannel.accept();
         //设置socket参数
         this.configureSocketChannel(socketChannel);
+        // 创建会话
+        final NioSession session = this.buildSession(socketChannel);
+        session.start();
         //发送处理器队列
-        processor.accept(socketChannel);
+        processor.accept(session);
     }
 
 }

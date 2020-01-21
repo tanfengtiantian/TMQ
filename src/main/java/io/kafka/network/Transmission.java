@@ -17,4 +17,9 @@ public interface Transmission {
      * 检查任务是否已完成
      */
     boolean complete();
+
+    /**
+     * 重置任务
+     */
+    void reset();
 }

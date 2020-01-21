@@ -223,6 +223,14 @@ public class ServerConfig {
 	public boolean isReuseAddr() {
 		return this.reuseAddr;
 	}
-	//*********************************************************************server配置****************************************
+
+	/**
+	 * 会话默认buffer
+	 * @return
+	 */
+    public int getSessionReadBufferSize() {
+    	return 8 * 1024;
+    }
+    //*********************************************************************server配置****************************************
 	
 }

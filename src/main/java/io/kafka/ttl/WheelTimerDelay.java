@@ -57,7 +57,7 @@ public class WheelTimerDelay {
             //写入直接内存 持久化磁盘
             delayTimerMap.put(ttl.getTask(),delayStore.addMessageAndWritten(buf,log,message,ttl.getDeadline()));
         }else {
-            //写入直接内存
+            //重启恢复，写入直接内存
             delayStore.addMessage(buf,log,message,ttl.getDeadline());
             delayTimerMap.put(ttl.getTask(),location);
         }

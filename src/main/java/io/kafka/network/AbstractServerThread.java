@@ -2,14 +2,24 @@ package io.kafka.network;
 
 import io.kafka.config.ServerConfig;
 import io.kafka.core.ControllerLifeCycle;
+import io.kafka.network.session.NioSession;
+import io.kafka.network.session.NioTCPSession;
+import io.kafka.network.session.SessionContextManager;
+import io.kafka.network.session.SessionHandler;
 import io.kafka.utils.Closer;
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.channels.SelectableChannel;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.eclipse.jetty.io.SelectorManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +29,8 @@ import org.slf4j.LoggerFactory;
  * @ClassName ServerThread基类
  */
 public abstract class AbstractServerThread implements Runnable, Closeable {
-    protected SelectorManager selectorManager;
+    protected ServerSync serverSync;
+    private Selector selector;
     protected final CountDownLatch startupLatch = new CountDownLatch(1);
     protected final CountDownLatch shutdownLatch = new CountDownLatch(1);
     protected final AtomicBoolean alive = new AtomicBoolean(false);
@@ -28,27 +39,40 @@ public abstract class AbstractServerThread implements Runnable, Closeable {
     protected boolean soLingerOn = false;
     protected ServerConfig serverConfig;
     protected void closeSelector() {
-        Closer.closeQuietly(selectorManager.getSelector(), logger);
+        Closer.closeQuietly(selector, logger);
     }
 
+    /**
+     * @return the selector
+     */
+    public Selector getSelector() {
+        if (selector == null) {
+            try {
+                selector = Selector.open();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return selector;
+    }
     public AbstractServerThread(ServerConfig serverConfig){
         this.serverConfig = serverConfig;
     }
-    public SelectorManager initialSelectorManager(ControllerLifeCycle controllerLifeCycle, int plength) {
-        if (this.selectorManager == null) {
-            this.selectorManager = new SelectorManager(controllerLifeCycle, plength);
+    public ServerSync initialServerSync(ControllerLifeCycle controllerLifeCycle, int plength) {
+        if (this.serverSync == null) {
+            this.serverSync = new ServerSync(controllerLifeCycle, plength);
         }
-        return selectorManager;
+        return serverSync;
     }
 
-    protected void setSelectorManager(SelectorManager selectorManager) {
-        this.selectorManager = selectorManager;
+    protected void setServerSync(ServerSync serverSync) {
+        this.serverSync = serverSync;
     }
 
     @Override
     public void close() {
         alive.set(false);
-        selectorManager.getSelector().wakeup();
+        selector.wakeup();
         try {
             shutdownLatch.await();
         } catch (InterruptedException e) {
@@ -119,8 +143,6 @@ public abstract class AbstractServerThread implements Runnable, Closeable {
             sc.socket().setTcpNoDelay(
                     StandardSocketOption.TCP_NODELAY.type().cast(this.socketOptions.get(StandardSocketOption.TCP_NODELAY)));
         }
-
-        logger.info("OP_ACCEPT请求->来自Client->{}",sc.getRemoteAddress());
     }
 
     protected Map<SocketOption<?>, Object> getSocketOptionsFromConfig(final ServerConfig config) {
@@ -148,5 +170,11 @@ public abstract class AbstractServerThread implements Runnable, Closeable {
 
     public void awaitStartup() throws InterruptedException {
         startupLatch.await();
+    }
+
+
+    protected NioSession buildSession(final SocketChannel sc) {
+        final NioSession session = new NioTCPSession(SessionContextManager.getRegisterHandler(), sc, this.serverConfig.getSessionReadBufferSize());
+        return session;
     }
 }

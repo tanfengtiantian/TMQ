@@ -6,11 +6,10 @@ import java.nio.channels.Selector;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 选择器管理
+ * 服务启动线程同步器
  */
-public class SelectorManager {
+public class ServerSync {
 
-    private Selector selector;
     private ControllerLifeCycle controllerLifeCycle;
     private int plength = -1;
     /**
@@ -18,23 +17,11 @@ public class SelectorManager {
      */
     private final AtomicInteger processorReadyCount = new AtomicInteger(0);
 
-    public SelectorManager(ControllerLifeCycle controllerLifeCycle, int plength) {
+    public ServerSync(ControllerLifeCycle controllerLifeCycle, int plength) {
         this.controllerLifeCycle = controllerLifeCycle;
         this.plength = plength;
     }
-    /**
-     * @return the selector
-     */
-    public Selector getSelector() {
-        if (selector == null) {
-            try {
-                selector = Selector.open();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return selector;
-    }
+
 
     public void awaitReady() {
         synchronized (this) {

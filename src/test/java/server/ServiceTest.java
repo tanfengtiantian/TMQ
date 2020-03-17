@@ -16,7 +16,7 @@ import java.util.Properties;
 /**
  * @author tf
  * @version 创建时间：2019年1月17日 下午6:02:19
- * @ClassName 类名称
+ * @ClassName 服务测试启动类
  */
 public class ServiceTest {
 

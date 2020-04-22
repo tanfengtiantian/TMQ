@@ -27,7 +27,11 @@ public enum RequestKeys {
      *
      */
     DELETE,//8
-
+    /**
+     * rpc协议
+     *
+     */
+    RPC,//9
     ;
 
     //

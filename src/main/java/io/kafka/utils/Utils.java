@@ -294,4 +294,43 @@ public class Utils {
             throw new IllegalStateException("delete directory failed: " + dir);
         }
     }
+
+    public static void jdkDeserialization(Object[] arguments, byte[] data) {
+        final ByteArrayInputStream in = new ByteArrayInputStream(data);
+        try {
+            final ObjectInputStream objIn = new ObjectInputStream(in);
+            for (int i = 0; i < arguments.length; i++) {
+                arguments[i] = objIn.readObject();
+            }
+        }
+        catch (final Exception e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            try {
+                in.close();
+            }
+            catch (final IOException e) {
+                // ignore
+            }
+        }
+    }
+
+    public static byte[] jdkSerializable(Object obj){
+        byte[] argumentsData = null;
+        //序列化参数
+        if (obj != null) {
+            final ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try {
+                final ObjectOutputStream objOut = new ObjectOutputStream(out);
+                objOut.writeObject(obj);
+                out.close();
+                argumentsData = out.toByteArray();
+            }
+            catch (final Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return argumentsData;
+    }
 }

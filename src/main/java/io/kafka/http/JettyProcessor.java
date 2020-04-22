@@ -197,12 +197,14 @@ public class JettyProcessor extends HttpServlet implements SessionHandler {
 
     @Override
     public void onMessageReceived(NioSession session, RequestKeys requestType, Receive receive) {
-        System.out.println("JettyProcessor-->onMessageReceived");
+        //接收消费请求
+        //System.out.println("JettyProcessor-->onMessageReceived");
     }
 
     @Override
     public void onMessageSent(NioSession session, Send msg) {
-        System.out.println("JettyProcessor-->onMessageSent");
+        //可能空消息，需要判断
+        //System.out.println("JettyProcessor-->onMessageSent");
     }
 
     @Override

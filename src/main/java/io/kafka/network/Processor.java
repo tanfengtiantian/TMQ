@@ -5,6 +5,7 @@ import io.kafka.api.RequestKeys;
 import io.kafka.common.exception.InvalidRequestException;
 import io.kafka.config.ServerConfig;
 import io.kafka.core.Controller;
+import io.kafka.core.DispatcherTask;
 import io.kafka.network.receive.BoundedByteBufferReceive;
 import io.kafka.network.receive.Receive;
 import io.kafka.network.request.RequestHandler;
@@ -43,6 +44,8 @@ public class Processor extends AbstractServerThread implements Controller {
 
 	private int maxRequestSize;
 
+	private DispatcherTask dispatcher;
+
     private volatile int selectTries = 0;
 
     private long nextTimeout = 0;
@@ -54,10 +57,12 @@ public class Processor extends AbstractServerThread implements Controller {
 	 * @param maxCacheConnections 最大连接数
 	 */
 	public Processor(ServerConfig serverConfig, RequestHandlerFactory requesthandlerFactory, //
+                     DispatcherTask dispatcher,
                      int maxRequestSize,//
                      int maxCacheConnections) {
 	    super(serverConfig);
 		this.requesthandlerFactory = requesthandlerFactory;
+		this.dispatcher = dispatcher;
 		this.maxRequestSize = maxRequestSize;
 		this.newConnections = new ArrayBlockingQueue<>(maxCacheConnections);
 	}
@@ -73,6 +78,7 @@ public class Processor extends AbstractServerThread implements Controller {
 
 	@Override
 	public void run() {
+	    //等待所有处理器准备就绪
         this.serverSync.notifyReady();
 		startupComplete();
 		while (isRunning()) {
@@ -98,9 +104,9 @@ public class Processor extends AbstractServerThread implements Controller {
                         key = iter.next();
                         iter.remove();
                         if (key.isReadable()) {
-                        	read(key);
+                            onRead(key);
                         } else if (key.isWritable()) {
-                            write(key);
+                            OnWrite(key);
                         } else if (!key.isValid()) {
                             close(key);
                         } else {
@@ -134,6 +140,52 @@ public class Processor extends AbstractServerThread implements Controller {
 		}
 	}
 
+	private void onRead(final SelectionKey key) throws IOException {
+        if (dispatcher.getReadEventDispatcher() == null) {
+            this.read(key);
+        }
+        else {
+            dispatcher.getReadEventDispatcher().dispatch(()->{
+                try {
+                    Processor.this.read(key);
+                } catch (IOException e) {
+                    requestLogger.error(e.getMessage());
+                }
+            });
+        }
+    }
+
+    private void OnWrite(SelectionKey key) throws IOException {
+        if (dispatcher.getWriteEventDispatcher() == null) {
+            this.write(key);
+        }
+        else {
+            dispatcher.getWriteEventDispatcher().dispatch(()->{
+                try {
+                    Processor.this.write(key);
+                } catch (IOException e) {
+                    requestLogger.error(e.getMessage());
+                }
+            });
+        }
+
+    }
+
+    private void onMessage(SelectionKey key,NioSession session, Receive request) throws IOException {
+        if (dispatcher.getDispatchMessageDispatcher() == null) {
+            dispatchReceivedMessage(key,session,request);
+        }
+        else {
+            this.dispatcher.getDispatchMessageDispatcher().dispatch(()->{
+                try {
+                    Processor.this.dispatchReceivedMessage(key,session,request);
+                } catch (IOException e) {
+                    requestLogger.error(e.getMessage());
+                }
+            });
+        }
+	}
+
     private void read(SelectionKey key) throws IOException {
         SocketChannel socketChannel = channelFor(key);
         NioSession session = getSessionFromAttchment(key);
@@ -145,17 +197,24 @@ public class Processor extends AbstractServerThread implements Controller {
         if (read < 0) {
             close(key);
         } else if (request.complete()) {
-            Send maybeResponse = handle(key, request);
-            // 如果有响应，发送它，否则什么都不做。
-            if (maybeResponse != null) {
-                session.resultSend(maybeResponse);
-                key.interestOps(SelectionKey.OP_WRITE);
-                request.reset();
-            }
+            onMessage(key,session,request);
         } else {
             // 断包处理
             key.interestOps(SelectionKey.OP_READ);
             getSelector().wakeup();
+        }
+    }
+
+    /**
+     * 发送接收到的消息
+     */
+    private void dispatchReceivedMessage(SelectionKey key,NioSession session, Receive request) throws IOException {
+        Send maybeResponse = handle(key, request);
+        // 如果有响应，发送它，否则什么都不做。
+        if (maybeResponse != null) {
+            session.resultSend(maybeResponse);
+            key.interestOps(SelectionKey.OP_WRITE);
+            request.reset();
         }
     }
 
@@ -224,6 +283,8 @@ public class Processor extends AbstractServerThread implements Controller {
         }
         Closer.closeQuietly(channel.socket());
         Closer.closeQuietly(channel);
+        NioSession session = getSessionFromAttchment(key);
+        session.close();
         key.attach(null);
         key.cancel();
 	}
@@ -242,4 +303,5 @@ public class Processor extends AbstractServerThread implements Controller {
 
         return nextTimeout;
     }
+
 }

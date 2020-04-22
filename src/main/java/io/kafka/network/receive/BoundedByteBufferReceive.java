@@ -51,7 +51,7 @@ public class BoundedByteBufferReceive extends AbstractTransmission implements Re
 	    public int readFrom(ReadableByteChannel channel) throws IOException {
 	        expectIncomplete();
 	        int read = 0;
-	        //有效数据长度
+	        //有效数据长度 remaining
 	        if (sizeBuffer.remaining() > 0) {
 	            read += Utils.read(channel, sizeBuffer);
 	        }

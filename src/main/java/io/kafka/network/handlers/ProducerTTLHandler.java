@@ -28,7 +28,7 @@ public class ProducerTTLHandler extends AbstractHandler {
 	public ProducerTTLHandler(ILogManager logManager, ServerConfig config) {
 		super(logManager);
 		this.config=config;
-        wheelTimerDelay=new WheelTimerDelay(logManager,config);
+        wheelTimerDelay = new WheelTimerDelay(logManager,config);
 	}
 
 	@Override

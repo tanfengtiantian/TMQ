@@ -6,6 +6,7 @@ import io.kafka.log.ILogManager;
 import io.kafka.network.receive.Receive;
 import io.kafka.network.request.RequestHandler;
 import io.kafka.network.request.RequestHandlerFactory;
+import io.kafka.rpc.RpcHandler;
 import io.kafka.transaction.store.TransactionStore;
 
 
@@ -23,6 +24,7 @@ public class RequestHandlers implements RequestHandlerFactory {
 	private final OffsetsHandler offsetsHandler;
 	private final TransactionHandler transactionHandler;
 	private final ProducerTTLHandler producerTTLHandler;
+	private final RpcHandler rpcHandler;
 	
 	public RequestHandlers(ServerConfig config,ILogManager logManager, TransactionStore transactionStore) {
 		producerHandler = new ProducerHandler(logManager,config);
@@ -32,6 +34,7 @@ public class RequestHandlers implements RequestHandlerFactory {
 		offsetsHandler = new OffsetsHandler(logManager,config);
 		transactionHandler = new TransactionHandler(logManager,transactionStore,config);
 		producerTTLHandler = new ProducerTTLHandler(logManager,config);
+		rpcHandler = new RpcHandler(config);
 	}
 	@Override
 	public RequestHandler mapping(RequestKeys id, Receive request) {
@@ -54,6 +57,8 @@ public class RequestHandlers implements RequestHandlerFactory {
 				return null;
 			case DELETE:
 				return null;
+			case RPC:
+				return rpcHandler;
 		}
 		return null;
 	}

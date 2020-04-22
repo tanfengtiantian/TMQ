@@ -35,7 +35,8 @@ public class ServiceTest {
 		p.setProperty("log.file.size", (1024*1024)+"");
 		//强制将数据刷新到磁盘之前要接受的消息数
 		p.setProperty("log.flush.interval", "10000");
-		p.setProperty("log.dir", "E:\\tmp\\zx-data");
+		//p.setProperty("log.dir", "E:\\tmp\\zx-data");
+		p.setProperty("log.dir","/Users/zxcs/Desktop/jafka-data");
 		//定期日志过期任务执行间隔时间  分钟单位
 		p.setProperty("log.cleanup.interval.mins", "1");
 		//日志最大保留时间                          小时单位

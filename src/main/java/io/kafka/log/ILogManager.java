@@ -20,7 +20,7 @@ public interface ILogManager extends PartitionChooser,Closeable {
 	 * 启动加载本地log.dir目录文件
 	 * @throws IOException
 	 */
-	public void load() throws IOException;
+	void load() throws IOException;
 	
 	
 	/**

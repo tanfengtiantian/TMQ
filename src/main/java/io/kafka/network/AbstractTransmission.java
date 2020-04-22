@@ -2,7 +2,7 @@ package io.kafka.network;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import sun.jvm.hotspot.runtime.Thread;
 
 
 /**
@@ -15,6 +15,8 @@ public class AbstractTransmission implements Transmission {
 	private boolean done = false;
 
     final protected Logger logger = LoggerFactory.getLogger(getClass());
+
+    //final static ThreadLocal<Boolean>  doneThreadLocal = ThreadLocal.withInitial(() -> false);
 
     public void expectIncomplete() {
         if (complete()) {
@@ -30,14 +32,17 @@ public class AbstractTransmission implements Transmission {
 
     public boolean complete() {
         return done;
+        //return doneThreadLocal.get();
     }
 
     @Override
     public void reset() {
         done = false;
+        //doneThreadLocal.set(false);
     }
 
     public void setCompleted() {
         this.done = true;
+        //doneThreadLocal.set(true);
     }
 }

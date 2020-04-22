@@ -5,23 +5,20 @@ import io.kafka.core.ControllerLifeCycle;
 import io.kafka.network.session.NioSession;
 import io.kafka.network.session.NioTCPSession;
 import io.kafka.network.session.SessionContextManager;
-import io.kafka.network.session.SessionHandler;
 import io.kafka.utils.Closer;
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.channels.SelectableChannel;
+import java.lang.reflect.Method;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
+import java.nio.channels.spi.SelectorProvider;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.eclipse.jetty.io.SelectorManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.kafka.utils.*;
 
 /**
  * @author tf
@@ -48,13 +45,47 @@ public abstract class AbstractServerThread implements Runnable, Closeable {
     public Selector getSelector() {
         if (selector == null) {
             try {
-                selector = Selector.open();
+                //selector = Selector.open();
+                selector = openSelector();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
         return selector;
     }
+
+    private static Selector openSelector() throws IOException {
+        Selector result = null;
+        // 在linux平台，尽量启用epoll实现
+        if (SystemOSUtils.isLinuxPlatform()) {
+            try {
+                final Class<?> providerClazz = Class.forName("sun.nio.ch.EPollSelectorProvider");
+                if (providerClazz != null) {
+                    try {
+                        final Method method = providerClazz.getMethod("provider");
+                        if (method != null) {
+                            final SelectorProvider selectorProvider = (SelectorProvider) method.invoke(null);
+                            if (selectorProvider != null) {
+                                result = selectorProvider.openSelector();
+                            }
+                        }
+                    }
+                    catch (final Exception e) {
+                        // ignore
+                    }
+                }
+            }
+            catch (final Exception e) {
+                // ignore
+            }
+        }
+        if (result == null) {
+            result = Selector.open();
+        }
+        return result;
+
+    }
+
     public AbstractServerThread(ServerConfig serverConfig){
         this.serverConfig = serverConfig;
     }

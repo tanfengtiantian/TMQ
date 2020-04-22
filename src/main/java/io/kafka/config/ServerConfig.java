@@ -16,6 +16,7 @@ public class ServerConfig {
 	public ServerConfig(Properties props) {
         this.props = props;
     }
+    public Properties getProps() { return this.props; }
 	//*********************************************************************zookeeper配置****************************************
 	public boolean getEnableZookeeper() {
         return getBoolean(props, "enable.zookeeper", false);
@@ -231,6 +232,18 @@ public class ServerConfig {
     public int getSessionReadBufferSize() {
     	return 8 * 1024;
     }
-    //*********************************************************************server配置****************************************
+
+	public int getReadThreadCount() {
+    	return 0;
+	}
+
+	public int getWriteThreadCount() {
+    	return 0;
+	}
+
+	public int getDispatchMessageThreadCount() {
+    	return 0;
+	}
+	//*********************************************************************server配置****************************************
 	
 }

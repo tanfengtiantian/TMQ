@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import io.kafka.api.RequestKeys;
 import io.kafka.cluster.Broker;
 import io.kafka.network.receive.Receive;
+import io.kafka.network.request.Request;
 import io.kafka.network.send.Send;
 import io.kafka.network.session.NioSession;
 import io.kafka.network.session.SessionHandler;
@@ -196,7 +197,7 @@ public class JettyProcessor extends HttpServlet implements SessionHandler {
     }
 
     @Override
-    public void onMessageReceived(NioSession session, RequestKeys requestType, Receive receive) {
+    public void onMessageReceived(NioSession session, RequestKeys requestType, Request request) {
         //接收消费请求
         //System.out.println("JettyProcessor-->onMessageReceived");
     }

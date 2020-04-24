@@ -2,6 +2,7 @@ package io.kafka.network.session;
 
 import io.kafka.api.RequestKeys;
 import io.kafka.network.receive.Receive;
+import io.kafka.network.request.Request;
 import io.kafka.network.send.Send;
 
 import java.net.InetAddress;
@@ -51,7 +52,7 @@ public interface NioSession {
     /**
      *session 接收数据
      */
-    void onMessageReceived(RequestKeys requestType, Receive receive);
+    void onMessageReceived(RequestKeys requestType, Request request);
     /**
      *session 发送数据
      */

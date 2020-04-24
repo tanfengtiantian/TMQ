@@ -1,7 +1,7 @@
 package io.kafka.network.request;
 
 import io.kafka.api.RequestKeys;
-import io.kafka.network.receive.Receive;
+import java.nio.ByteBuffer;
 
 
 /**
@@ -17,5 +17,11 @@ public interface RequestHandlerFactory {
      * @param request body
      * @return handler for the request
      */
-    RequestHandler mapping(RequestKeys id, Receive request);
+    RequestHandler mapping(RequestKeys id);
+
+    interface Decoder {
+        Request decode(ByteBuffer buffer);
+    }
+
+    RequestHandlerFactory.Decoder getDecoder(RequestKeys id);
 }

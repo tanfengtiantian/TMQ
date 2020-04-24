@@ -6,7 +6,10 @@ import io.kafka.api.RequestKeys;
 import io.kafka.config.ServerConfig;
 import io.kafka.log.ILogManager;
 import io.kafka.network.receive.Receive;
+import io.kafka.network.request.Request;
 import io.kafka.network.send.Send;
+
+import java.nio.ByteBuffer;
 
 public class MultiProduceHandler extends ProducerHandler {
 
@@ -14,14 +17,18 @@ public class MultiProduceHandler extends ProducerHandler {
         super(logManager, config);
     }
 
-    public Send handler(RequestKeys requestType, Receive receive) {
-        MultiProducerRequest request = MultiProducerRequest.readFrom(receive.buffer());
+    public Send handler(RequestKeys requestType, Request request) {
+        MultiProducerRequest multiProducerRequest = (MultiProducerRequest)request;
         if (logger.isDebugEnabled()) {
-            logger.debug("Multiproducer request " + request);
+            logger.debug("Multiproducer request " + multiProducerRequest);
         }
-        for (ProducerRequest produce : request.produces) {
+        for (ProducerRequest produce : multiProducerRequest.produces) {
             handleProducerRequest(produce);
         }
         return null;
+    }
+
+    public Request decode(ByteBuffer buffer) {
+        return MultiProducerRequest.readFrom(buffer);
     }
 }

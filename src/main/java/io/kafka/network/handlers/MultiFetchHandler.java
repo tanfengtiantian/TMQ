@@ -6,9 +6,12 @@ import io.kafka.api.RequestKeys;
 import io.kafka.config.ServerConfig;
 import io.kafka.log.ILogManager;
 import io.kafka.network.receive.Receive;
+import io.kafka.network.request.Request;
 import io.kafka.network.send.MessageSetSend;
 import io.kafka.network.send.MultiMessageSetSend;
 import io.kafka.network.send.Send;
+
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,8 +26,8 @@ public class MultiFetchHandler extends FetchHandler {
         super(logManager,config);
     }
 
-    public Send handler(RequestKeys requestType, Receive request) {
-        MultiFetchRequest multiFetchRequest = MultiFetchRequest.readFrom(request.buffer());
+    public Send handler(RequestKeys requestType,  Request request) {
+        MultiFetchRequest multiFetchRequest = (MultiFetchRequest)request;
         List<FetchRequest> fetches = multiFetchRequest.getFetches();
         if (logger.isDebugEnabled()) {
             logger.debug("Multifetch request size: " + fetches.size());
@@ -39,4 +42,7 @@ public class MultiFetchHandler extends FetchHandler {
         return new MultiMessageSetSend(responses);
     }
 
+    public Request decode(ByteBuffer buffer) {
+        return MultiFetchRequest.readFrom(buffer);
+    }
 }

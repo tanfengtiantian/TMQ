@@ -20,5 +20,5 @@ public interface RequestHandler {
      * @param 请求正文
      * @return 处理响应
      */
-    Send handler(RequestKeys requestType, Receive request) throws IOException;
+    Send handler(RequestKeys requestType, Request request) throws IOException;
 }

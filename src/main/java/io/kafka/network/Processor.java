@@ -1,30 +1,27 @@
 package io.kafka.network;
 
 import static java.lang.String.format;
-import io.kafka.api.RequestKeys;
 import io.kafka.common.exception.InvalidRequestException;
 import io.kafka.config.ServerConfig;
 import io.kafka.core.Controller;
 import io.kafka.core.DispatcherTask;
-import io.kafka.network.receive.BoundedByteBufferReceive;
 import io.kafka.network.receive.Receive;
+import io.kafka.network.request.Request;
 import io.kafka.network.request.RequestHandler;
 import io.kafka.network.request.RequestHandlerFactory;
 import io.kafka.network.send.Send;
 import io.kafka.network.session.NioSession;
+import io.kafka.network.session.SessionEvent;
 import io.kafka.utils.Closer;
-
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +31,7 @@ import org.slf4j.LoggerFactory;
  * @ClassName *处理来自单个连接的所有请求的线程。
  * 			  *其中每个都有自己的选择器
  */
-public class Processor extends AbstractServerThread implements Controller {
+public class Processor extends AbstractServerThread implements SessionEvent,Controller {
 
 	private BlockingQueue<NioSession> newConnections;
 	
@@ -108,7 +105,7 @@ public class Processor extends AbstractServerThread implements Controller {
                         } else if (key.isWritable()) {
                             OnWrite(key);
                         } else if (!key.isValid()) {
-                            close(key);
+                            onClosed(key);
                         } else {
                             throw new IllegalStateException("SelectionKey-处理器线程的状态无法识别。");
                         }
@@ -116,13 +113,13 @@ public class Processor extends AbstractServerThread implements Controller {
                     	//通道读取不到数据
                     	Socket socket = channelFor(key).socket();
                     	requestLogger.debug(format("connection closed by %s:%d.", socket.getInetAddress(), socket.getPort()));
-                        close(key);
+                        onClosed(key);
                     }
                     catch (InvalidRequestException ire) {
                         Socket socket = channelFor(key).socket();
                         requestLogger.info(format("关闭链接 ( %s:%d ) 无效的请求: %s", socket.getInetAddress(), socket.getPort(),
                                 ire.getMessage()));
-                        close(key);
+                        onClosed(key);
                     } catch (Throwable t) {
                         Socket socket = channelFor(key).socket();
                         final String msg = "关闭链接( %s:%d ) error :%s";
@@ -131,7 +128,7 @@ public class Processor extends AbstractServerThread implements Controller {
                         } else {
                         	requestLogger.info(format(msg, socket.getInetAddress(), socket.getPort(), t.getMessage()));
                         }
-                        close(key);
+                        onClosed(key);
                     }
                 }
 			} catch (IOException e) {
@@ -140,7 +137,7 @@ public class Processor extends AbstractServerThread implements Controller {
 		}
 	}
 
-	private void onRead(final SelectionKey key) throws IOException {
+	public void onRead(final SelectionKey key) throws IOException {
         if (dispatcher.getReadEventDispatcher() == null) {
             this.read(key);
         }
@@ -155,7 +152,7 @@ public class Processor extends AbstractServerThread implements Controller {
         }
     }
 
-    private void OnWrite(SelectionKey key) throws IOException {
+    public void OnWrite(SelectionKey key) throws IOException {
         if (dispatcher.getWriteEventDispatcher() == null) {
             this.write(key);
         }
@@ -171,51 +168,41 @@ public class Processor extends AbstractServerThread implements Controller {
 
     }
 
-    private void onMessage(SelectionKey key,NioSession session, Receive request) throws IOException {
+    public void onMessage(NioSession session, Request request) throws IOException {
         if (dispatcher.getDispatchMessageDispatcher() == null) {
-            dispatchReceivedMessage(key,session,request);
+            dispatchReceivedMessage(session,request);
         }
         else {
             this.dispatcher.getDispatchMessageDispatcher().dispatch(()->{
                 try {
-                    Processor.this.dispatchReceivedMessage(key,session,request);
+                    Processor.this.dispatchReceivedMessage(session,request);
                 } catch (IOException e) {
                     requestLogger.error(e.getMessage());
                 }
             });
         }
-	}
+    }
 
     private void read(SelectionKey key) throws IOException {
         SocketChannel socketChannel = channelFor(key);
         NioSession session = getSessionFromAttchment(key);
         if(session == null)
             return;
-        Receive request = session.getReceive();
-        //sizeBuffer [size -4bytes] + contentBuffer
-        int read = request.readFrom(socketChannel);
-        if (read < 0) {
-            close(key);
-        } else if (request.complete()) {
-            onMessage(key,session,request);
-        } else {
-            // 断包处理
-            key.interestOps(SelectionKey.OP_READ);
-            getSelector().wakeup();
-        }
+        Receive receive = session.getReceive();
+        receive.readFrom(this,key,socketChannel,requesthandlerFactory);
     }
 
     /**
      * 发送接收到的消息
      */
-    private void dispatchReceivedMessage(SelectionKey key,NioSession session, Receive request) throws IOException {
-        Send maybeResponse = handle(key, request);
-        // 如果有响应，发送它，否则什么都不做。
+    private Send dispatchReceivedMessage(NioSession session, Request request) throws IOException {
+        Send maybeResponse = handle(request);
+        // 如果有结果，放入session，切换状态
         if (maybeResponse != null) {
             session.resultSend(maybeResponse);
-            key.interestOps(SelectionKey.OP_WRITE);
-            request.reset();
+            //key.interestOps(SelectionKey.OP_WRITE);
         }
+        return maybeResponse;
     }
 
 	private void write(SelectionKey key) throws IOException {
@@ -227,39 +214,24 @@ public class Processor extends AbstractServerThread implements Controller {
         if(requestLogger.isDebugEnabled()) {
             requestLogger.debug("Send[ "+response.getClass().getName()+" ] write[ " + written+" ] ");
         }
-        if (response.complete()) {
-            key.interestOps(SelectionKey.OP_READ);
-        } else {
-            key.interestOps(SelectionKey.OP_WRITE);
-            getSelector().wakeup();
-        }
 	}
 	
 	/**
 	 * 处理生成可选响应的已完成请求
-	 * @param key
 	 * @param request
 	 * @return
 	 */
-	private Send handle(SelectionKey key, Receive request) throws IOException {
-		//[size] + buffer=([type -2bytes] + Len(topic) + topic + partition + messageSize + message)
-		final short requestTypeId = request.buffer().getShort();
-		//获取请求type类型
-		final RequestKeys requestType = RequestKeys.valueOf(requestTypeId);
-		if (requestType == null) {
-            throw new InvalidRequestException("未知请求类型  requestTypeId：" + requestTypeId);
-        }
-		RequestHandler handlerMapping = requesthandlerFactory.mapping(requestType, request);
+	private Send handle(Request request) throws IOException {
+
+		RequestHandler handlerMapping = requesthandlerFactory.mapping(request.getRequestKey());
 		if (handlerMapping == null) {
             throw new InvalidRequestException("No handler found request");
         }
-        NioSession session = getSessionFromAttchment(key);
-        session.onMessageReceived(requestType,request);
 		//计时器
 		long start = System.nanoTime();
-        Send maybeSend = handlerMapping.handler(requestType, request);
+        Send maybeSend = handlerMapping.handler(request.getRequestKey(), request);
         if(requestLogger.isDebugEnabled()){
-        	requestLogger.debug(format("requestTypeId=[%d] 处理耗时: %d",requestTypeId,System.nanoTime() - start));
+        	requestLogger.debug(format("requestTypeId=[%d] 处理耗时: %d",request.getRequestKey(),System.nanoTime() - start));
         }
         return maybeSend;
 	}
@@ -275,8 +247,7 @@ public class Processor extends AbstractServerThread implements Controller {
         return null;
     }
 
-	private void close(SelectionKey key) {
-
+	public void onClosed(SelectionKey key) {
 		SocketChannel channel = (SocketChannel) key.channel();
         if (requestLogger.isDebugEnabled()) {
         	requestLogger.debug("关闭链接： " + channel.socket().getRemoteSocketAddress());
@@ -303,5 +274,4 @@ public class Processor extends AbstractServerThread implements Controller {
 
         return nextTimeout;
     }
-
 }

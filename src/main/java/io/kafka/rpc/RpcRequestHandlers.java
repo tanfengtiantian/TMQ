@@ -15,10 +15,19 @@ public class RpcRequestHandlers implements RequestHandlerFactory {
     }
 
     @Override
-    public RequestHandler mapping(RequestKeys id, Receive request) {
+    public RequestHandler mapping(RequestKeys id) {
+        return selectKey(id);
+    }
+
+    public Decoder getDecoder(RequestKeys id) {
+        Decoder decoder = selectKey(id);
+        return decoder;
+    }
+
+    public <T> T selectKey(RequestKeys id) {
         switch (id) {
             case RPC:
-                return rpcHandler;
+                return (T)rpcHandler;
         }
         return null;
     }

@@ -7,11 +7,14 @@ import io.kafka.config.ServerConfig;
 import io.kafka.log.ILog;
 import io.kafka.log.ILogManager;
 import io.kafka.network.receive.Receive;
+import io.kafka.network.request.Request;
+import io.kafka.network.request.RequestHandlerFactory;
 import io.kafka.network.send.ProducerTTLSend;
 import io.kafka.network.send.Send;
 import io.kafka.ttl.WheelTimerDelay;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * @author tf
@@ -20,7 +23,7 @@ import java.io.IOException;
  * 
  * </pre>
  */
-public class ProducerTTLHandler extends AbstractHandler {
+public class ProducerTTLHandler extends AbstractHandler implements RequestHandlerFactory.Decoder {
 
 	final ServerConfig config;
 	final WheelTimerDelay wheelTimerDelay;
@@ -31,12 +34,12 @@ public class ProducerTTLHandler extends AbstractHandler {
         wheelTimerDelay = new WheelTimerDelay(logManager,config);
 	}
 
-	@Override
-	public Send handler(RequestKeys requestType, Receive receive) {
-        ProducerTTLRequest request = ProducerTTLRequest.readFrom(receive.buffer());
-        request.brokerId=config.getBrokerId();
-        return handleProducerTTLRequest(request);
-	}
+    @Override
+    public Send handler(RequestKeys requestType, Request request) throws IOException {
+        ProducerTTLRequest ttlRequest = (ProducerTTLRequest)request;
+        ttlRequest.brokerId=config.getBrokerId();
+        return handleProducerTTLRequest(ttlRequest);
+    }
 
 	private Send handleProducerTTLRequest(final ProducerTTLRequest request) {
         int partition = request.getTranslatedPartition(logManager);
@@ -52,4 +55,10 @@ public class ProducerTTLHandler extends AbstractHandler {
         }
         return new ProducerTTLSend(request);
 	}
+
+
+    @Override
+    public Request decode(ByteBuffer buffer) {
+        return ProducerTTLRequest.readFrom(buffer);
+    }
 }

@@ -32,7 +32,7 @@ public class ServiceTest {
 		Properties p = new Properties();
 		//文件滚动大小
 		//p.setProperty("log.file.size", 536870912+"");
-		p.setProperty("log.file.size", (1024*1024)+"");
+		p.setProperty("log.file.size", (500*1024*1024)+"");
 		//强制将数据刷新到磁盘之前要接受的消息数
 		p.setProperty("log.flush.interval", "10000");
 		//p.setProperty("log.dir", "E:\\tmp\\zx-data");
@@ -55,7 +55,7 @@ public class ServiceTest {
 		//通道最大接收数据
 		p.setProperty("socket.receive.buffer", 100 * 1024 +"");
 		//默认分区数
-		p.setProperty("num.partitions", "2");
+		p.setProperty("num.partitions", "1");
 		//brokerid
 		p.setProperty("brokerid", "1");
 		p.setProperty("enable.zookeeper", "false");

@@ -16,10 +16,4 @@ public interface Request{
      */
     RequestKeys getRequestKey();
 
-    /**
-     * 将请求数据写入缓冲区
-     * 
-     * @param buffer data
-     */
-    //void writeTo(ByteBuffer buffer);
 }

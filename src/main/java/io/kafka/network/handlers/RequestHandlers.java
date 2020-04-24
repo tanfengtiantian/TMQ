@@ -37,29 +37,38 @@ public class RequestHandlers implements RequestHandlerFactory {
 		rpcHandler = new RpcHandler(config);
 	}
 	@Override
-	public RequestHandler mapping(RequestKeys id, Receive request) {
+	public RequestHandler mapping(RequestKeys id) {
+		return selectKey(id);
+	}
+
+	public Decoder getDecoder(RequestKeys id) {
+		return selectKey(id);
+	}
+
+	public <T> T selectKey(RequestKeys id) {
 		switch (id) {
-	        case FETCH:
-	            return fetchHandler;
-	        case PRODUCE:
-	            return producerHandler;
-	        case MULTIFETCH:
-	            return multiFetchHandler;
-	        case MULTIPRODUCE:
-	            return mltiProduceHandler;
-	        case OFFSETS:
-	            return offsetsHandler;
+			case FETCH:
+				return (T) fetchHandler;
+			case PRODUCE:
+				return (T)producerHandler;
+			case MULTIFETCH:
+				return (T)multiFetchHandler;
+			case MULTIPRODUCE:
+				return (T)mltiProduceHandler;
+			case OFFSETS:
+				return (T)offsetsHandler;
 			case TRANSACTION:
-				return transactionHandler;
+				return (T)transactionHandler;
 			case TTLPRODUCE:
-				return producerTTLHandler;
+				return (T)producerTTLHandler;
 			case CREATE:
 				return null;
 			case DELETE:
 				return null;
 			case RPC:
-				return rpcHandler;
+				return (T)rpcHandler;
 		}
 		return null;
 	}
+
 }

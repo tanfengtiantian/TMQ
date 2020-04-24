@@ -1,9 +1,11 @@
 package io.kafka.api;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 import io.kafka.message.ByteBufferMessageSet;
 import io.kafka.network.request.Request;
+import io.kafka.network.request.RequestHandlerFactory;
 import io.kafka.utils.Utils;
 
 
@@ -111,17 +113,6 @@ public class ProducerRequest implements Request {
 		return RequestKeys.PRODUCE;
 	}
 
-	/*
-	@Override
-	public void writeTo(ByteBuffer buffer) {
-		Utils.writeShortString(buffer, topic);
-        buffer.putInt(partition);
-        final ByteBuffer sourceBuffer = messages.serialized();
-        buffer.putInt(sourceBuffer.limit());
-        buffer.put(sourceBuffer);
-        sourceBuffer.rewind();
-	}*/
-	
 	@Override
     public String toString() {
         StringBuilder buf = new StringBuilder();

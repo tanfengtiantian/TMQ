@@ -2,8 +2,6 @@ package io.kafka.api;
 
 import io.kafka.network.request.Request;
 import io.kafka.utils.Utils;
-
-import java.io.*;
 import java.nio.ByteBuffer;
 
 public class RpcRequest implements Request {

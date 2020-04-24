@@ -226,12 +226,17 @@ public class ServerConfig {
 	}
 
 	/**
-	 * 会话默认buffer
+	 * 连接读缓冲区大小
+	 */
+	private int readBufferSize = 16 * 1024;
+	/**
+	 * session默认buffer
 	 * @return
 	 */
     public int getSessionReadBufferSize() {
-    	return 8 * 1024;
+    	return readBufferSize;
     }
+
 
 	public int getReadThreadCount() {
     	return 0;

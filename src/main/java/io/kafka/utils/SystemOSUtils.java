@@ -10,6 +10,9 @@ import java.net.UnknownHostException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * os上下文
+ */
 public final class SystemOSUtils {
 
     private SystemOSUtils() {

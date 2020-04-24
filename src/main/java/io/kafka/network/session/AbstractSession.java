@@ -3,17 +3,20 @@ package io.kafka.network.session;
 import io.kafka.api.RequestKeys;
 import io.kafka.network.receive.BoundedByteBufferReceive;
 import io.kafka.network.receive.Receive;
+import io.kafka.network.request.Request;
 import io.kafka.network.send.Send;
 import io.kafka.utils.nettyloc.PooledByteBufAllocator;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class AbstractSession implements NioSession {
 
-    protected PooledByteBufAllocator allocator = PooledByteBufAllocator.DEFAULT;//池化内存
+    //protected PooledByteBufAllocator allocator = PooledByteBufAllocator.DEFAULT;//池化内存
+    protected ByteBuffer readBuffer;//池化内存
     protected List<SessionHandler> handlers;
     /**是否路由器**/
     protected boolean loopback;
@@ -34,6 +37,7 @@ public class AbstractSession implements NioSession {
     public AbstractSession(List<SessionHandler> handlers) {
         this.handlers = handlers;
     }
+
     @Override
     public synchronized void start() {
         this.onStarted();
@@ -48,7 +52,7 @@ public class AbstractSession implements NioSession {
     public Receive getReceive() {
         if(request == null) {
             synchronized (this) {
-                request = new BoundedByteBufferReceive(recvBufferSize,allocator);
+                request = new BoundedByteBufferReceive(recvBufferSize,readBuffer,this);
             }
         }
         return request;
@@ -110,11 +114,12 @@ public class AbstractSession implements NioSession {
             this.onException(e);
         }
     }
+
     @Override
-    public void onMessageReceived(RequestKeys requestType, Receive receive) {
+    public void onMessageReceived(RequestKeys requestType, Request request) {
         try {
             handlers.forEach((handler) -> {
-                handler.onMessageReceived(this,requestType,receive);
+                handler.onMessageReceived(this,requestType,request);
             });
         }
         catch (final Throwable e) {
@@ -167,5 +172,9 @@ public class AbstractSession implements NioSession {
     @Override
     public void close() {
         onClosed();
+    }
+
+    protected void setReadBuffer(ByteBuffer buffer) {
+        readBuffer = buffer;
     }
 }

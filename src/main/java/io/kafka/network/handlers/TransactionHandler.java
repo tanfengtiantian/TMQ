@@ -3,6 +3,8 @@ package io.kafka.network.handlers;
 import io.kafka.api.RequestKeys;
 import io.kafka.config.ServerConfig;
 import io.kafka.log.ILog;
+import io.kafka.network.request.Request;
+import io.kafka.network.request.RequestHandlerFactory;
 import io.kafka.network.send.TransactionSend;
 import io.kafka.transaction.*;
 import io.kafka.api.TransactionRequest;
@@ -16,6 +18,7 @@ import io.kafka.utils.timer.Timer;
 
 import javax.transaction.xa.XAException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -26,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  *
  * </pre>
  */
-public class TransactionHandler extends AbstractHandler implements TransactionSessionContext {
+public class TransactionHandler extends AbstractHandler implements RequestHandlerFactory.Decoder,TransactionSessionContext {
 
     private final ConcurrentHashMap<TransactionId, Transaction> transactionMap =
             new ConcurrentHashMap<TransactionId, Transaction>();
@@ -47,14 +50,14 @@ public class TransactionHandler extends AbstractHandler implements TransactionSe
     }
 
     @Override
-    public Send handler(RequestKeys requestType, Receive receive) throws IOException {
+    public Send handler(RequestKeys requestType, Request request) throws IOException {
         final long st = System.currentTimeMillis();
-        TransactionRequest request = TransactionRequest.readFrom(receive.buffer());
-        request.setBrokerId(config.getBrokerId());
+        TransactionRequest transactionRequest = (TransactionRequest)request;
+        transactionRequest.setBrokerId(config.getBrokerId());
         if (logger.isDebugEnabled()) {
             logger.debug("Transaction request " + request.toString());
         }
-        Send send = handleTransactionRequest(request);
+        Send send = handleTransactionRequest(transactionRequest);
         long et = System.currentTimeMillis();
         if (logger.isDebugEnabled()) {
             logger.debug("解析消息耗时: " + (et - st) + " ms");
@@ -149,5 +152,10 @@ public class TransactionHandler extends AbstractHandler implements TransactionSe
     @Override
     public ConcurrentHashMap<TransactionId, Transaction> getTransactions() {
         return transactionMap;
+    }
+
+    @Override
+    public Request decode(ByteBuffer buffer) {
+        return TransactionRequest.readFrom(buffer);
     }
 }

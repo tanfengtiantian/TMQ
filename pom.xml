@@ -20,7 +20,7 @@
 		<protobuf-java.version>2.5.0</protobuf-java.version>
 		<jetty.version>9.4.19.v20190610</jetty.version>
 		<commons-cli.version>1.2</commons-cli.version>
-		<fastjson.version>1.2.61</fastjson.version>
+		<fastjson.version>1.2.83</fastjson.version>
 	</properties>
 	
 	<dependencies>
